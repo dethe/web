@@ -1,5 +1,7 @@
-(function(xtag){
-'use strict';
+// DOM utilities
+
+(function(global){
+    'use strict';
 
     var SVG_NS = 'http://www.w3.org/2000/svg';
     
@@ -9,8 +11,8 @@
 
     function element(elem, attributes /* optional object */, children /* optional array, node, or string */){
         if (!children && attributes && (Array.isArray(attributes) || 
-                           attributes.nodeName || 
-                           typeof attributes === 'string')){
+                attributes.nodeName || 
+                typeof attributes === 'string')){
             children = attributes;
             attributes = null;
         }
@@ -55,28 +57,52 @@
             }
             children.forEach(function(child){
                 if (child.nodeName){
-                    elem.appendChild(child);
+                    e.appendChild(child);
                 }else{
                     // assumes child is a string
-                    elem.appendChild(document.createTextNode(child));
+                    e.appendChild(document.createTextNode(child));
                 }
             });
         }
         return elem;
     }
 
-    function remove(elem){
-        elem.parentElement.removeChild(elem);
-        return elem;
+    function elemToObject(elem){
+        var obj = {
+            name: elem.tagName
+        };
+        if (elem.attributes && elem.attributes.length){
+            var attributes = {};
+            [].slice.call(elem.attributes).forEach(function(attr){
+                attributes[attr.name] = attr.value;
+            });
+            obj.attributes = attributes;
+        }
+        if (elem.childNodes && elem.childNodes.length){
+            obj.children = [].slice.call(elem.childNodes).map(function(child){
+                if (child.nodeType === Node.ELEMENT_NODE){
+                    return elemToObject(child);
+                }else if(child.nodeType === Node.TEXT_NODE){
+                    return node.textContent;
+                }else{
+                    return null; // we only care about element and text nodes
+                }
+            }).filter(function(child){ return !! child; }); // remove nulls
+        }
+        return obj;
     }
 
-    function randomId(){
-        return 'id' + Math.floor(Math.random() * 1000000);
+    function remove(elem){
+        elem.parentElement.removeChild(elem);
+    }
+
+    function insertAfter(newElement, sibling){
+        sibling.parentElement.insertBefore(newElement, sibling.nextElementSibling);
     }
 
    function closest(elem, selector){
         while(elem){
-            if (xtag.matchesSelector(elem, selector)){
+            if (matches(elem, selector)){
                 return elem;
             }
             if (!elem.parentElement){
@@ -88,33 +114,92 @@
         return null;
     }
 
-    var eachFrameHandlers = [];
-    function eachFrame(){
-        eachFrameHandlers.forEach(function(handler){
-            var time = Date.now();
-            handler(time - handler.timestamp);
-            handler.timestamp = time;
-        });
-        xtag.requestFrame(eachFrame);
+    function find(elem, selector){
+        if (typeof(elem) === 'string'){
+            selector = elem;
+            elem = document.body;
+        }
+        return elem.querySelector(selector);
     }
-    xtag.requestFrame(eachFrame);
-    xtag.addFrameHandler = function(handler){
-        handler.timestamp = Date.now();
-        eachFrameHandlers.push(handler);
+
+    function findAll(elem, selector){
+        if (typeof(elem) === 'string'){
+            selector = elem;
+            elem = document.body;
+        }
+        return [].slice.call(elem.querySelectorAll(selector));
+    }
+
+    // Remove namespace for matches
+    var matches;
+    if (document.body.matches){
+        matches = function matches(elem, selector){ return elem.matches(selector); };
+    }else if(document.body.mozMatchesSelector){
+        matches = function matches(elem, selector){ return elem.mozMatchesSelector(selector); };
+    }else if (document.body.webkitMatchesSelector){
+        matches = function matches(elem, selector){ return elem.webkitMatchesSelector(selector); };
+    }else if (document.body.msMatchesSelector){
+        matches = function matches(elem, selector){ return elem.msMatchesSelector(selector); };
+    }else if(document.body.oMatchesSelector){
+        matches = function matches(elem, selector){ return elem.oMatchesSelector(selector); };
+    }
+
+    function addClass(elem, klass){
+        /* Conditionally add class if element exists */
+        if (elem){
+            elem.classList.add(klass);
+        }
+    }
+
+    function removeClass(elem, klass){
+        /* Conditionall remove class if element exists */
+        if (elem){
+            elem.classList.remove(klass);
+        }
+    }
+
+    function nextSibling(elem){
+        /* conditionally returns next sibling if element exists */
+        return elem ? elem.nextElementSibling : null;
+    }
+
+    function prevSibling(elem){
+        /* conditionally returns previous sibling if element exists */
+        return elem ? elem.previousElementSibling : null;
+    }
+
+    function toggleClass(elements, klass){
+        if (!elements) return;
+        if (Array.isArray(elements)){
+            elements.forEach(function(elem){
+                toggleClass(elem, klass);
+            });
+        }else{
+            elements.classList.toggle(klass);
+        }
+    }
+
+    function indexOf(child){
+        var allChildren = [].slice.call(child.parentElement.children);
+        return allChildren.indexOf(child);
+    }
+
+    global.dom = {
+        html: html,
+        svg: svg,
+        elemToObj: elemToObj,
+        remove: remove,
+        insertAfter: insertAfter,
+        matches: matches,
+        find: find,
+        findAll: findAll,
+        closest: closest,
+        addClass: addClass,
+        removeClass: removeClass,
+        prevSibling: prevSibling,
+        nextSibling: nextSibling,
+        toggleClass: toggleClass,
+        indexOf: indexOf
     };
 
-
-    xtag.addEvent(document, 'mousemove', function(evt){
-        xtag.mouseX = evt.clientX;
-        xtag.mouseY = evt.clientY;
-    });
-
-    xtag.mouseX = 0;
-    xtag.mouseY = 0;
-
-    xtag.html = html;
-    xtag.svg = svg;
-    xtag.remove = remove;
-    xtag.closest = closest;
-    xtag.randomId = randomId;
-})(xtag);
+})(this);
